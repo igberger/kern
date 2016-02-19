@@ -111,14 +111,17 @@ catmouse_sync_cleanup(int bowls)
 void
 cat_before_eating(unsigned int bowl) 
 {
+  kprintf("Cat trying to eat at bowl: %d\n", bowl);
   /* replace this default implementation with your own implementation of cat_before_eating */
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
-  while(catsTurn != 1 && bowlsArray[bowl-1] != '-' && catsThatHaveEaten >= numBowls){
+  while(catsTurn != 1 || bowlsArray[bowl-1] != '-' || catsThatHaveEaten >= numBowls){
     cv_wait(globalCatCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'c';
+  kprintf("Cat going to eat at bowl: %d\n", bowl);
+  lock_release(globalCatMouseLock);
 }
 
 /*
@@ -153,6 +156,7 @@ cat_after_eating(unsigned int bowl)
     }
     if(stillEating == 0){//if no cats are eating change turn to mice, reset eating counter, and signal all mice
       catsTurn = 0;
+      kprintf("Mice Turn\n");
       catsThatHaveEaten = 0;
       for(int i=0; i<numBowls; i++){
         cv_signal(globalMouseCv[i]);
@@ -179,14 +183,17 @@ cat_after_eating(unsigned int bowl)
 void
 mouse_before_eating(unsigned int bowl) 
 {
+  kprintf("Mouse trying to eat at bowl: %d\n", bowl);
   /* replace this default implementation with your own implementation of mouse_before_eating */
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
-  while(catsTurn != 0 && bowlsArray[bowl-1] != '-' && miceThatHaveEaten >= numBowls){
+  while(catsTurn != 0 || bowlsArray[bowl-1] != '-' || miceThatHaveEaten >= numBowls){
     cv_wait(globalMouseCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'm';
+  kprintf("Mouse going to eat at bowl: %d\n", bowl);
+  lock_release(globalCatMouseLock);
 }
 
 /*
@@ -221,6 +228,7 @@ mouse_after_eating(unsigned int bowl)
     }
     if(stillEating == 0){//if no mice are eating change turn to cats, reset eating counter, and signal all cats
       catsTurn = 1;
+      kprintf("Cats Turn\n");
       miceThatHaveEaten = 0;
       for(int i=0; i<numBowls; i++){
         cv_signal(globalCatCv[i]);
