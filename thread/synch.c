@@ -173,7 +173,7 @@ lock_create(const char *name)
             return NULL;
         }
         spinlock_init(&lock->lk_lock);
-        lock->lk_holder = NULL;
+        lock->lk_holder = NULL; //nobody holds new lock
         #endif
         
         return lock;
@@ -186,13 +186,11 @@ lock_destroy(struct lock *lock)
 
         // add stuff here as needed
         #if OPT_A1
-        KASSERT(lock->lk_holder == NULL);
+        KASSERT(lock->lk_holder == NULL); //make sure nobody has lock
 
         spinlock_cleanup(&lock->lk_lock);
         wchan_destroy(lock->lk_wchan);
 
-        //kfree(&lock->lk_lock);
-        //kfree(lock->lk_wchan);
         #endif 
         kfree(lock->lk_name);
         kfree(lock);
@@ -201,14 +199,11 @@ lock_destroy(struct lock *lock)
 void
 lock_acquire(struct lock *lock)
 {
-        // Write this
         #if OPT_A1
-        //maybe switch first two to DEBUGASSERT
-        //KASSERT(lock!=NULL);              //does lock exist
-        //KASSERT(!(lock_do_i_hold(lock))); //do we hold the lock
         KASSERT(curthread->t_in_interrupt == false);    //are interupts disabled
 
         spinlock_acquire(&lock->lk_lock);       //get spinlock for atomic operation
+        //need to verify folowing while block
         while(lock->lk_holder != NULL) {        //while another thread has the lock
             wchan_lock(lock->lk_wchan);         //get wait chanel lock
             spinlock_release(&lock->lk_lock);   //release spinlock
@@ -227,11 +222,11 @@ void
 lock_release(struct lock *lock)
 {
         #if OPT_A1
-        //KASSERT(lock_do_i_hold(lock));    //make sure you have the lock
-
         spinlock_acquire(&lock->lk_lock);       //get spinlock for atomic action
+
         lock->lk_holder = NULL;                 //relsease lock
         wchan_wakeone(lock->lk_wchan);          //signal kernel to wake a waiting thread
+
         spinlock_release(&lock->lk_lock);       //release spinlock
         
         #else
@@ -248,6 +243,7 @@ lock_do_i_hold(struct lock *lock)
         bool returnValue;
 
         spinlock_acquire(&lock->lk_lock);
+        //check if current thread has lock
         returnValue = (lock->lk_holder == curthread);
         spinlock_release(&lock->lk_lock);
 
@@ -276,7 +272,7 @@ cv_create(const char *name)
         }
 
         cv->cv_name = kstrdup(name);
-        if (cv->cv_name==NULL) {
+        if (cv->cv_name == NULL) {
                 kfree(cv);
                 return NULL;
         }
@@ -298,6 +294,8 @@ cv_destroy(struct cv *cv)
         KASSERT(cv != NULL);
 
         #if OPT_A1
+        //do we need the spinlock_cleanup?
+        //spinlock_cleanup(&cv->cv_lock);
         wchan_destroy(cv->cv_wchan);
         #endif
         
@@ -308,13 +306,11 @@ cv_destroy(struct cv *cv)
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-        //KASSERT(lock_do_i_hold(lock));
         #if OPT_A1
-        //wchan_lock(cv->cv_wchan);   //need lock to sleep
         lock_release(lock);         //release lock
-        wchan_lock(cv->cv_wchan);   //need lock to sleep
+        wchan_lock(cv->cv_wchan);   //need wchan_lock to sleep
         wchan_sleep(cv->cv_wchan);  //sleep
-        lock_acquire(lock);         //reaquire lock
+        lock_acquire(lock);         //reaquire lock after sleep
         #else
         (void)cv;    // suppress warning until code gets written
         (void)lock;  // suppress warning until code gets written
@@ -326,7 +322,7 @@ cv_signal(struct cv *cv)
 {
     
         #if OPT_A1
-        //KASSERT(lock_do_i_hold(lock));
+        //do we need spinlock here? 
         wchan_wakeone(cv->cv_wchan); //signal to kernel that resouce is ready for another thread
         #else
         (void)cv;    // suppress warning until code gets written
@@ -339,7 +335,8 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 {
     
         #if OPT_A1
-        KASSERT(lock_do_i_hold(lock));
+        //KASSERT(lock_do_i_hold(lock));
+        //do we need spinlock here?
         wchan_wakeall(cv->cv_wchan);
         #else
         (void)cv;    // suppress warning until code gets written
