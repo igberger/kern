@@ -121,7 +121,7 @@ cat_before_eating(unsigned int bowl)
   lock_acquire(globalCatMouseLock);
   catsWaiting++;
   kprintf("Cat trying to eat at bowl: %d, catsWaiting: %d\n", bowl, catsWaiting);
-  while(catsTurn != 1 || bowlsArray[bowl-1] != '-' ){
+  while(catsTurn != 1 || bowlsArray[bowl-1] != '-' || (catsThatHaveEaten>=numBowls && miceWaiting>0)){
     cv_wait(globalCatCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'c';
@@ -195,7 +195,7 @@ mouse_before_eating(unsigned int bowl)
   lock_acquire(globalCatMouseLock);
   miceWaiting++;
   kprintf("Mouse trying to eat at bowl: %d, miceWaiting: %d\n", bowl, miceWaiting);
-  while(catsTurn != 0 || bowlsArray[bowl-1] != '-'){
+  while(catsTurn != 0 || bowlsArray[bowl-1] != '-' || (miceThatHaveEaten>=numBowls && catsWaiting>0)){
     cv_wait(globalMouseCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'm';
