@@ -25,6 +25,8 @@ static struct cv **globalMouseCv;
 static int catsTurn; //1 - turn for cats to eat, 0 - turn for mice to eat
 static int catsThatHaveEaten;
 static int miceThatHaveEaten;
+static int catsWaiting;
+static int miceWaiting;
 static int numBowls;
 static char *bowlsArray;
 
@@ -64,6 +66,8 @@ catmouse_sync_init(int bowls)
   catsTurn = 1;
   catsThatHaveEaten = 0;
   miceThatHaveEaten = 0;
+  catsWaiting = 0;
+  miceWaiting = 0;
   numBowls = bowls;
   return;
 }
@@ -111,16 +115,19 @@ catmouse_sync_cleanup(int bowls)
 void
 cat_before_eating(unsigned int bowl) 
 {
-  kprintf("Cat trying to eat at bowl: %d\n", bowl);
   /* replace this default implementation with your own implementation of cat_before_eating */
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
-  while(catsTurn != 1 || bowlsArray[bowl-1] != '-' || catsThatHaveEaten >= numBowls){
+  catsWaiting++;
+  kprintf("Cat trying to eat at bowl: %d, catsWaiting: %d\n", bowl, catsWaiting);
+  while(catsTurn != 1 || bowlsArray[bowl-1] != '-' ){
     cv_wait(globalCatCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'c';
-  kprintf("Cat going to eat at bowl: %d\n", bowl);
+  catsThatHaveEaten++;
+  catsWaiting--;
+  kprintf("Cat going to eat at bowl: %d, catsWaiting: %d\n", bowl, catsWaiting);
   lock_release(globalCatMouseLock);
 }
 
@@ -144,25 +151,24 @@ cat_after_eating(unsigned int bowl)
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
+  kprintf("Cat done eating at bowl: %d\n", bowl);
   bowlsArray[bowl-1] = '-';
-  catsThatHaveEaten++;
-  if(catsThatHaveEaten >= numBowls){//threshold for turn crossed
-    int stillEating = 0;
-    for(int i=0; i<numBowls; i++){//check if any cats are still eating
-      if(bowlsArray[i] != '-'){
-        stillEating = 1;
-        break;
-      }
+  //check if any cats are still eating
+  int stillEating = 0;
+  for(int i=0; i<numBowls; i++){
+    if(bowlsArray[i] != '-'){
+      stillEating = 1;
+      break;
     }
-    if(stillEating == 0){//if no cats are eating change turn to mice, reset eating counter, and signal all mice
-      catsTurn = 0;
-      kprintf("Mice Turn\n");
-      catsThatHaveEaten = 0;
-      for(int i=0; i<numBowls; i++){
-        cv_signal(globalMouseCv[i]);
-      }
+  }
+  if(stillEating == 0 && miceWaiting>0){//if no cats are eating and mice are waiting change turn to mice, reset eating counter, and signal all mice
+    catsTurn = 0;
+    kprintf("Mice Turn, cats that ate last turn: %d\n", catsThatHaveEaten);
+    catsThatHaveEaten = 0;
+    for(int i=0; i<numBowls; i++){
+      cv_broadcast(globalMouseCv[i], globalCatMouseLock);
     }
-  } else{//threshold not crossed, signal one cat that might be waiting on this bowl
+  } else{//signal one cat that might be waiting on this bowl
     cv_signal(globalCatCv[bowl-1]);
   }
   lock_release(globalCatMouseLock);
@@ -183,16 +189,19 @@ cat_after_eating(unsigned int bowl)
 void
 mouse_before_eating(unsigned int bowl) 
 {
-  kprintf("Mouse trying to eat at bowl: %d\n", bowl);
   /* replace this default implementation with your own implementation of mouse_before_eating */
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
-  while(catsTurn != 0 || bowlsArray[bowl-1] != '-' || miceThatHaveEaten >= numBowls){
+  miceWaiting++;
+  kprintf("Mouse trying to eat at bowl: %d, miceWaiting: %d\n", bowl, miceWaiting);
+  while(catsTurn != 0 || bowlsArray[bowl-1] != '-'){
     cv_wait(globalMouseCv[bowl-1], globalCatMouseLock);
   }
   bowlsArray[bowl-1] = 'm';
-  kprintf("Mouse going to eat at bowl: %d\n", bowl);
+  miceThatHaveEaten++;
+  miceWaiting--;
+  kprintf("Mouse going to eat at bowl: %d, miceWaiting: %d\n", bowl, miceWaiting);
   lock_release(globalCatMouseLock);
 }
 
@@ -216,25 +225,24 @@ mouse_after_eating(unsigned int bowl)
   (void)bowl;  /* keep the compiler from complaining about an unused parameter */
   KASSERT(globalCatMouseLock != NULL);
   lock_acquire(globalCatMouseLock);
+  kprintf("Mouse done eating at bowl: %d\n", bowl);
   bowlsArray[bowl-1] = '-';
-  miceThatHaveEaten++;
-  if(miceThatHaveEaten >= numBowls){//threshold for turn crossed
-    int stillEating = 0;
-    for(int i=0; i<numBowls; i++){//check if any mice are still eating
-      if(bowlsArray[i] != '-'){
-        stillEating = 1;
-        break;
-      }
+  //check if any mice are still eating
+  int stillEating = 0;
+  for(int i=0; i<numBowls; i++){
+    if(bowlsArray[i] != '-'){
+      stillEating = 1;
+      break;
     }
-    if(stillEating == 0){//if no mice are eating change turn to cats, reset eating counter, and signal all cats
-      catsTurn = 1;
-      kprintf("Cats Turn\n");
-      miceThatHaveEaten = 0;
-      for(int i=0; i<numBowls; i++){
-        cv_signal(globalCatCv[i]);
-      }
+  }
+  if(stillEating == 0 && catsWaiting>0){//if no mice are eating and cats are waiting change turn to cats, reset eating counter, and signal all cats
+    catsTurn = 1;
+    kprintf("Cats Turn, mice that ate last turn: %d\n", miceThatHaveEaten);
+    miceThatHaveEaten = 0;
+    for(int i=0; i<numBowls; i++){
+      cv_broadcast(globalCatCv[i], globalCatMouseLock);
     }
-  } else{//threshold not crossed, signal one mouse that might be waiting on this bowl
+  } else{//signal one mouse that might be waiting on this bowl
       cv_signal(globalMouseCv[bowl-1]);
   }
   lock_release(globalCatMouseLock);
