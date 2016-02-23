@@ -170,13 +170,13 @@ cat_after_eating(unsigned int bowl)
   //check if any cats are still eating
   int stillEating = 0;
   for(int i=0; i<numBowls; i++){
-    if(bowlsArray[i] != '-'){
+    if(bowlsArray[i] == 'c'){
       stillEating = 1;
       break;
     }
   }
-  //if no cats are eating and mice are waiting change turn to mice, reset eating counter, and signal all mice
-  if(stillEating==0 && miceWaiting>0){
+  //if no cats are eating and mice are waiting and cats are not waiting to eat or cats have eaten enough, change turn to mice, reset eating counter, and signal all mice
+  if(stillEating==0 && miceWaiting>0 && (catsWaiting==0 || catsThatHaveEaten>=numBowls)){
     catsTurn = 0;
     kprintf("\nMice Turn, cats that ate last turn: %d\n", catsThatHaveEaten);
     catsThatHaveEaten = 0;
@@ -258,13 +258,13 @@ mouse_after_eating(unsigned int bowl)
   //check if any mice are still eating
   int stillEating = 0;
   for(int i=0; i<numBowls; i++){
-    if(bowlsArray[i] != '-'){
+    if(bowlsArray[i] == 'm'){
       stillEating = 1;
       break;
     }
   }
-  //if no mice are eating and cats are waiting, change turn to cats, reset eating counter, and signal all cats
-  if(stillEating==0 && catsWaiting>0){
+  //if no mice are eating and cats are waiting and mice are not waiting to eat or mice have eaten enough, change turn to cats, reset eating counter, and signal all cats
+  if(stillEating==0 && catsWaiting>0 && (miceWaiting==0 || miceThatHaveEaten>=numBowls)){
     catsTurn = 1;
     kprintf("\nCats Turn, mice that ate last turn: %d\n", miceThatHaveEaten);
     miceThatHaveEaten = 0;
