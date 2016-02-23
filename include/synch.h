@@ -144,7 +144,7 @@ void cv_destroy(struct cv *);
  * These operations must be atomic. You get to write them.
  */
 void cv_wait(struct cv *cv, struct lock *lock);
-void cv_signal(struct cv *cv);
+void cv_signal(struct cv *cv, struct lock *lock);
 void cv_broadcast(struct cv *cv, struct lock *lock);
 
 

@@ -294,8 +294,6 @@ cv_destroy(struct cv *cv)
         KASSERT(cv != NULL);
 
         #if OPT_A1
-        //do we need the spinlock_cleanup?
-        //spinlock_cleanup(&cv->cv_lock);
         wchan_destroy(cv->cv_wchan);
         #endif
         
@@ -318,11 +316,11 @@ cv_wait(struct cv *cv, struct lock *lock)
 }
 
 void
-cv_signal(struct cv *cv)
+cv_signal(struct cv *cv, struct lock *lock)
 {
     
         #if OPT_A1
-        //do we need spinlock here? 
+        KASSERT(lock_do_i_hold(lock));
         wchan_wakeone(cv->cv_wchan); //signal to kernel that resouce is ready for another thread
         #else
         (void)cv;    // suppress warning until code gets written
@@ -335,8 +333,7 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 {
     
         #if OPT_A1
-        //KASSERT(lock_do_i_hold(lock));
-        //do we need spinlock here?
+        KASSERT(lock_do_i_hold(lock));
         wchan_wakeall(cv->cv_wchan);
         #else
         (void)cv;    // suppress warning until code gets written

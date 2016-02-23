@@ -97,6 +97,7 @@ catmouse_sync_cleanup(int bowls)
   }
   kfree(globalCatCv);
   kfree(globalMouseCv);
+  kfree(bowlsArray);
 }
 
 
@@ -161,15 +162,16 @@ cat_after_eating(unsigned int bowl)
       break;
     }
   }
-  if(stillEating == 0 && miceWaiting>0){//if no cats are eating and mice are waiting change turn to mice, reset eating counter, and signal all mice
+  //if no cats are eating and mice are waiting or no cats are waiting change turn to mice, reset eating counter, and signal all mice
+  if(stillEating==0 && (miceWaiting>0 || catsWaiting==0)){
     catsTurn = 0;
-    kprintf("Mice Turn, cats that ate last turn: %d\n", catsThatHaveEaten);
+    kprintf("\nMice Turn, cats that ate last turn: %d\n", catsThatHaveEaten);
     catsThatHaveEaten = 0;
     for(int i=0; i<numBowls; i++){
       cv_broadcast(globalMouseCv[i], globalCatMouseLock);
     }
   } else{//signal one cat that might be waiting on this bowl
-    cv_signal(globalCatCv[bowl-1]);
+    cv_signal(globalCatCv[bowl-1], globalCatMouseLock);
   }
   lock_release(globalCatMouseLock);
 }
@@ -235,15 +237,16 @@ mouse_after_eating(unsigned int bowl)
       break;
     }
   }
-  if(stillEating == 0 && catsWaiting>0){//if no mice are eating and cats are waiting change turn to cats, reset eating counter, and signal all cats
+  //if no mice are eating and cats are waiting or no mice are waiting, change turn to cats, reset eating counter, and signal all cats
+  if(stillEating==0 && (catsWaiting>0 || miceWaiting==0)){
     catsTurn = 1;
-    kprintf("Cats Turn, mice that ate last turn: %d\n", miceThatHaveEaten);
+    kprintf("\nCats Turn, mice that ate last turn: %d\n", miceThatHaveEaten);
     miceThatHaveEaten = 0;
     for(int i=0; i<numBowls; i++){
       cv_broadcast(globalCatCv[i], globalCatMouseLock);
     }
   } else{//signal one mouse that might be waiting on this bowl
-      cv_signal(globalMouseCv[bowl-1]);
+      cv_signal(globalMouseCv[bowl-1], globalCatMouseLock);
   }
   lock_release(globalCatMouseLock);
 }
