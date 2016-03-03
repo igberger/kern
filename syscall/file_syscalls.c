@@ -19,6 +19,25 @@
  *
  * You will need to improve this implementation
  */
+ 
+ /*
+#if OPT_A2
+int
+sys_open(userptr_t filename, int flags, iont mode, int *retval){
+  return 0;
+}
+
+int
+sys_read(int fdesc, userptr_t ubuf, unsigned int nbytes, int *retval){
+  return 0;
+}
+
+int
+sys_close(int fdesc){
+  return 0;
+}
+#endif
+*/
 
 int
 sys_write(int fdesc,userptr_t ubuf,unsigned int nbytes,int *retval)

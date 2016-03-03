@@ -50,6 +50,15 @@ void enter_forked_process(struct trapframe *tf);
 void enter_new_process(int argc, userptr_t argv, vaddr_t stackptr,
 		       vaddr_t entrypoint);
 
+/*
+#if OPT_A2
+int sys_open(userptr_t filename, int flags, int mode, int *retval);
+int sys_read(int fdesc, userptr_t ubuf, unsigned int nbytes, int *retval);
+int sys_close(int fdesc);
+int sys_fork(struct trapframe *tf, pid_t *retval);
+int sys_execv(userptr_t prog, userptr_t args);
+#endif
+*/
 
 /*
  * Prototypes for IN-KERNEL entry points for system call implementations.

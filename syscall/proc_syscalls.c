@@ -13,6 +13,20 @@
   /* this implementation of sys__exit does not do anything with the exit code */
   /* this needs to be fixed to get exit() and waitpid() working properly */
 
+/*
+#if OPT_A2
+int
+sys_fork(struct trapframe *tf, pid_t *retval){
+  return 0;
+}
+
+int
+sys_execv(userptr_t prog, userptr_t args){
+  return 0;
+}
+#endif
+*/
+
 void sys__exit(int exitcode) {
 
   struct addrspace *as;
@@ -55,8 +69,13 @@ sys_getpid(pid_t *retval)
 {
   /* for now, this is just a stub that always returns a PID of 1 */
   /* you need to fix this to make it work properly */
+  //#if OPT_A2
+  //this_pid = ((pid_t)curthread->pid);
+  //return this_pid;
+  //#else
   *retval = 1;
   return(0);
+  //#endif
 }
 
 /* stub handler for waitpid() system call                */
