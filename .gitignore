@@ -33,3 +33,6 @@
 
 #Directories
 compile/
+
+#build file
+build

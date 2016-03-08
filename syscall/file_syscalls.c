@@ -8,6 +8,7 @@
 #include <vfs.h>
 #include <current.h>
 #include <proc.h>
+#include "opt-A2.h"
 
 /* handler for write() system call                  */
 /*
