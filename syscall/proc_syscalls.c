@@ -13,19 +13,59 @@
   /* this implementation of sys__exit does not do anything with the exit code */
   /* this needs to be fixed to get exit() and waitpid() working properly */
 
-/*
+
 #if OPT_A2
-int
-sys_fork(struct trapframe *tf, pid_t *retval){
-  return 0;
+void entrypoint(void *arg1, unsigned long arg2) {
+  struct trapframe *tf, newtf;
+  struct addrspace addr;
+
+  tf = (struct trapframe) arg1;
+  addr = (struct addrspace) arg2;
+
+  curthread->t_addrspace = addr;
+  as_activate(addr);
+
+  newtf = *tf;
+  mips_usermode(&newtf);
 }
 
+
+int
+sys_fork(struct trapframe *tf, pid_t *retval){
+  struct thread *child_thread;
+  int result = 0;
+
+  //copy parent's address space
+  struct *child_addrspace;
+  result = as_copy(curthread->addrspace, &child_addrspace);
+  if(result) {
+    return ENOMEM;
+  }
+
+  //copy parent's trapframe
+  result = struct trapframe *child_tf = kmalloc(sizeof(struct trapframe));
+  if(result) {
+    return ENOMEM;
+  }
+  *child_tf = *tf;
+
+  //create child thread
+  result = thread_fork("Child Thread", entrypoint, (struct trapframe *) child_tf, 
+    (unsigned long) child_addrspace, &child_thread);
+  if(result) {
+    return ENOMEM;
+  }
+  
+}
+
+/*
 int
 sys_execv(userptr_t prog, userptr_t args){
   return 0;
 }
-#endif
 */
+#endif
+
 
 void sys__exit(int exitcode) {
 
