@@ -119,7 +119,12 @@ runprogram(char *progname, int argc, char **argv)
 	}
 	argBytes +=4;//include 4 bytes for null pointer at the end of argv
 
-	userStackPtr = userStackPtr - argBytes;//'Allocate' user stack space for buffer
+	//'Allocate' user stack space for buffer
+	if(argBytes%4==0){
+		userStackPtr = userStackPtr - (argBytes);
+	}else{//Shift stack pointer to make sure it and the argv pointers are 4-byte aligned
+		userStackPtr = userStackPtr - (argBytes+(4-argBytes%4));
+	}
 	//kprintf("argBytes: %d\tuserStackPtr: %x\n", argBytes, userStackPtr);
 	char *argBuff = kmalloc(argBytes);
 	//Copy argv into buff
@@ -144,7 +149,7 @@ runprogram(char *progname, int argc, char **argv)
 	}
 	/*for(int i=0; i<argBytes; i++){
 		if(i<4*(argc+1)){
-			kprintf("argBuff[%d-%d]:%x %x %x %x\n", i, i+3, argBuff[i], argBuff[i+1], argBuff[i+2], argBuff[i+3]);
+			kprintf("argBuff[%d-%d]:%x %x %x %x\n", i, i+3, (unsigned)(unsigned char)argBuff[i], (unsigned)(unsigned char)argBuff[i+1], (unsigned)(unsigned char)argBuff[i+2], (unsigned)(unsigned char)argBuff[i+3]);
 			i+=3;
 		}else{
 			kprintf("argBuff[%d]:%c\n", i, argBuff[i]);
@@ -152,23 +157,6 @@ runprogram(char *progname, int argc, char **argv)
 	}*/
 	kfree(argLengths);
 	kfree(argBuff);
-
-
-	/*
-	userptr_t userStackPtr = (userptr_t)stackptr;//Starting address of stack
-	userptr_t currentStackPtr = userStackPtr-4;//Working address of stack
-
-	copyout(&currentStackPtr, userStackPtr, 4);//Put argv pointer to argv array at start of stack
-	for(int i=0; i<argc; i++){
-		copyout(&userStackPtr, userStackPtr+(i+1)*4, 4);
-		int argBytes=0;
-		for(int j=0; argv[i][j]!='\0'; j++){
-			argBytes++;
-		}
-		argBytes++;
-		//copyout(argv[i], stackptr, )
-	}
-	*/
 
 	/* Warp to user mode. */
 	enter_new_process(argc/*argc*/, (userptr_t)userStackPtr/*userspace addr of argv*/, userStackPtr, entrypoint);//userStackPtr currently is argv pointer
