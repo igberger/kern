@@ -54,7 +54,7 @@ void enter_new_process(int argc, userptr_t argv, vaddr_t stackptr,
 #if OPT_A2
 int sys_open(userptr_t filename, int flags, int mode, int *retval);
 int sys_read(int fdesc, userptr_t ubuf, unsigned int nbytes, int *retval);
-int sys_close(int fdesc);
+int sys_close(int fdesc, int *retval);
 int sys_fork(struct trapframe *tf, pid_t *retval);
 int sys_execv(userptr_t prog, userptr_t args);
 void entrypoint(void *arg1, unsigned long arg2);

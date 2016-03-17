@@ -49,7 +49,10 @@
 #include <vnode.h>
 #include <vfs.h>
 #include <synch.h>
-#include <kern/fcntl.h>  
+#include <kern/fcntl.h>
+#include <kern/wait.h>
+#include <array.h>
+#include "opt-A2.h"  
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -69,6 +72,10 @@ static struct semaphore *proc_count_mutex;
 struct semaphore *no_proc_sem;   
 #endif  // UW
 
+#if OPT_A2
+static struct proctable procs;
+struct lock *proctable_lock;
+#endif
 
 
 /*
@@ -103,7 +110,24 @@ proc_create(const char *name)
 	proc->console = NULL;
 #endif // UW
 
+#if OPT_A2
+	proctable_init(&proc->p_children);
+	proc->exitcode = 0;
+	proc->is_exit = false;
+	proc->pproc = NULL;
+	proc->p_waitpid = lock_create("p_waitpid");
+	proc->p_waitpid_cv = cv_create("p_waitpid_cv");
+
+	unsigned index;
+	proctable_fill(&procs, proc, &index);
+	proc->pid = index;
+
 	return proc;
+#else
+
+
+	return proc;
+#endif
 }
 
 /*
@@ -167,7 +191,22 @@ proc_destroy(struct proc *proc)
 	spinlock_cleanup(&proc->p_lock);
 
 	kfree(proc->p_name);
+
+#if OPT_A2
+	kill_orphans(proc);
+
+	struct proc *parent = proc->pproc;
+	if(parent == NULL){
+		lock_destroy(proc->p_waitpid);
+		cv_destroy(proc->p_waitpid_cv);
+
+		proctable_set(&procs, proc->pid, NULL);
+	}
+
 	kfree(proc);
+#else
+	kfree(proc);
+#endif
 
 #ifdef UW
 	/* decrement the process count */
@@ -193,6 +232,10 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
+#if OPT_A2
+	proctable_init(&procs);
+#endif
+
   kproc = proc_create("[kernel]");
   if (kproc == NULL) {
     panic("proc_create for kproc failed\n");
@@ -226,6 +269,11 @@ proc_create_runprogram(const char *name)
 	if (proc == NULL) {
 		return NULL;
 	}
+
+#if OPT_A2
+	int success = proctable_add(&procs, proc, NULL);
+	kprintf("%d", success);
+#endif
 
 #ifdef UW
 	/* open the console - this should always succeed */
@@ -364,3 +412,41 @@ curproc_setas(struct addrspace *newas)
 	spinlock_release(&proc->p_lock);
 	return oldas;
 }
+
+#if OPT_A2
+void
+kill_orphans(struct proc *thisproc){
+	spinlock_acquire(&thisproc->p_lock);
+		unsigned i=0;
+		for(;i<proctable_num(&thisproc->p_children); i++){
+			struct proc *pd = proctable_get(&thisproc->p_children, i);
+			pd->pproc = NULL;
+		}
+	spinlock_release(&thisproc->p_lock);
+	return;
+}
+
+bool
+is_proc_child(struct proc *thisproc, pid_t child_pid){
+	struct proc *child_process = proc_pid_get(child_pid);
+	if(child_process->pproc == thisproc){
+		return true;
+	}
+	else
+		return false;
+}
+
+struct proc *
+proc_pid_get(pid_t pid){
+	unsigned i = 0;
+	struct proc *pd = NULL;
+	for(; i<proctable_num(&procs); i++)
+	{
+		pd = proctable_get(&procs, i);
+		if(pd->pid == pid){
+			break;
+		}
+	}
+	return pd;
+}
+#endif

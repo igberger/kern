@@ -18,6 +18,7 @@ struct File{
     struct lock* rw_lock;
 };
 
+#endif
 struct FileTable{
 	struct File *files[OPEN_MAX];
 	unsigned int num_files;

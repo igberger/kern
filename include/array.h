@@ -33,6 +33,7 @@
 #ifdef UW
 #include <lib.h>
 #endif
+#include "opt-A2.h"
 
 #define ARRAYS_CHECKED
 
@@ -76,6 +77,7 @@ void *array_get(const struct array *, unsigned index);
 void array_set(const struct array *, unsigned index, void *val);
 int array_setsize(struct array *, unsigned num);
 int array_add(struct array *, void *val, unsigned *index_ret);
+int array_fill(struct array *, void *val, unsigned *index_ret);
 void array_remove(struct array *, unsigned index);
 
 /*
@@ -123,6 +125,31 @@ array_add(struct array *a, void *val, unsigned *index_ret)
 	}
 	return 0;
 }
+
+#if OPT_2
+ARRAYINLINE int
+array_fill(struct array *a, void *val, unsigned *index_ret){
+	unsigned index;
+
+	for(index = 0; index < a->num; index++){
+		if(a->v[index] == NULL){
+			a->v[index] = val;
+			*index_ret = index;
+			return 0;
+		}
+	}
+
+	int ret;
+	index = a->num;
+
+	ret = array_setsize(a, index+1);
+	if(ret){
+		return ret;
+	}
+	a->v[index] = val;
+	*index_ret = index;
+}
+#endif
 
 /*
  * Bits for declaring and defining typed arrays.
@@ -177,6 +204,7 @@ array_add(struct array *a, void *val, unsigned *index_ret)
 	void ARRAY##_set(struct ARRAY *a, unsigned index, T *val); \
 	int ARRAY##_setsize(struct ARRAY *a, unsigned num);	\
 	int ARRAY##_add(struct ARRAY *a, T *val, unsigned *index_ret); \
+	int ARRAY##_fill(struct ARRAY *a, T *val, unsigned *index_ret); \
 	void ARRAY##_remove(struct ARRAY *a, unsigned index)
 
 #define DEFARRAY_BYTYPE(ARRAY, T, INLINE) \
@@ -238,6 +266,12 @@ array_add(struct array *a, void *val, unsigned *index_ret)
 	ARRAY##_add(struct ARRAY *a, T *val, unsigned *index_ret) \
 	{							\
 		return array_add(&a->arr, (void *)val, index_ret); \
+	}							\
+								\
+	INLINE int 					\
+	ARRAY##_fill(struct ARRAY *a, T *val, unsigned *index_ret)		\
+	{							\
+		return array_fill(&a->arr, (void *)val, index_ret);	\
 	}							\
 								\
 	INLINE void						\

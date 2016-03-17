@@ -36,8 +36,12 @@
  * Note: curproc is defined by <current.h>.
  */
 
+#include <types.h>
+#include <synch.h>
 #include <spinlock.h>
+#include <filetable.h>
 #include <thread.h> /* required for struct threadarray */
+#include "opt-A2.h"
 
 struct addrspace;
 struct vnode;
@@ -45,10 +49,32 @@ struct vnode;
 struct semaphore;
 #endif // UW
 
+#if OPT_A2
+	#ifndef PROCINLINE
+	#define PROCINLINE INLINE
+	#endif
+
+	DECLARRAY_BYTYPE(proctable, struct proc);
+	DEFARRAY_BYTYPE(proctable, struct proc, PROCINLINE)
+#endif
+
 /*
  * Process structure.
  */
 struct proc {
+
+#if OPT_A2
+	pid_t pid;	//process id
+	int exitcode;	//exitcode
+	bool is_exit;
+	struct proc *pproc;	//parent for fork
+	struct proctable p_children;
+	struct lock *p_waitpid;
+	struct cv *p_waitpid_cv;
+	struct FileTable *p_ft;
+	struct semaphore *p_sem;
+	bool stdio_reserve;
+#endif
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	struct threadarray p_threads;	/* Threads in this process */
@@ -58,7 +84,6 @@ struct proc {
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
-
 #ifdef UW
   /* a vnode to refer to the console device */
   /* this is a quick-and-dirty way to get console writes working */
@@ -67,9 +92,19 @@ struct proc {
      it has opened, not just the console. */
   struct vnode *console;                /* a vnode for the console device */
 #endif
-
-	/* add more material here as needed */
 };
+
+
+#if OPT_A2
+	void kill_orphans(struct proc *p);
+	bool is_proc_child(struct proc *p, pid_t child_pid);
+	struct proc *proc_pid_get(pid_t pid);
+
+	struct lock;
+#endif
+
+
+
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;

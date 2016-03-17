@@ -36,8 +36,9 @@
  * You'll probably want to add stuff here.
  */
 
-
+#include <types.h>
 #include <machine/vm.h>
+#include <opt-A2.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
@@ -50,6 +51,11 @@ void vm_bootstrap(void);
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
+
+#if OPT_A2
+bool vm_invalidaddress(vaddr_t addr);
+#endif
+
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(int npages);

@@ -9,7 +9,10 @@
 #include <thread.h>
 #include <addrspace.h>
 #include <copyinout.h>
+#include <synch.h>
 #include "opt-A2.h"
+
+#include <vfs.h>
 
   /* this implementation of sys__exit does not do anything with the exit code */
   /* this needs to be fixed to get exit() and waitpid() working properly */
@@ -95,6 +98,15 @@ void sys__exit(int exitcode) {
   /* note: curproc cannot be used after this call */
   proc_remthread(curthread);
 
+  #if OPT_A2
+  p->exitcode = _MKWAIT_EXIT(exitcode);
+  p->is_exit = true;
+
+  lock_acquire(p->p_waitpid);
+  cv_broadcast(p->p_waitpid_cv, p->p_waitpid);
+  lock_release(p->p_waitpid);
+  #endif
+
   /* if this is the last user process in the system, proc_destroy()
      will wake up the kernel menu thread */
   proc_destroy(p);
@@ -111,13 +123,13 @@ sys_getpid(pid_t *retval)
 {
   /* for now, this is just a stub that always returns a PID of 1 */
   /* you need to fix this to make it work properly */
-  //#if OPT_A2
-  //this_pid = ((pid_t)curthread->pid);
-  //return this_pid;
-  //#else
+  #if OPT_A2
+  *retval = curproc->pid;
+  
+  #else
   *retval = 1;
+  #endif
   return(0);
-  //#endif
 }
 
 /* stub handler for waitpid() system call                */
@@ -143,8 +155,28 @@ sys_waitpid(pid_t pid,
   if (options != 0) {
     return(EINVAL);
   }
-  /* for now, just pretend the exitstatus is 0 */
+
+  #if OPT_A2
+  struct proc *thisproc = curproc;
+  bool mychild = is_proc_child(thisproc, pid);
+  if(!mychild){
+    kprintf("Error not child of current process");
+    return 0;
+  }
+
+  struct proc *waitingproc = proc_pid_get(pid);
+  lock_acquire(waitingproc->p_waitpid);
+  while(waitingproc->is_exit == false){
+    cv_wait(waitingproc->p_waitpid_cv, waitingproc->p_waitpid);
+  }
+  lock_release(waitingproc->p_waitpid);
+  
+  exitstatus = waitingproc->exitcode;
+
+  #else
   exitstatus = 0;
+  #endif
+
   result = copyout((void *)&exitstatus,status,sizeof(int));
   if (result) {
     return(result);

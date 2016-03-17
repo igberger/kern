@@ -32,10 +32,11 @@
  
 #if OPT_A2
 int
-sys_open(userptr_t filename, int flags, int mode, int *ret){
+sys_open(userptr_t filenameptr, int flags, int mode, int *ret){
     int result;
     int err;
-    filename = (char *)filename;
+    char *filename = (char *)filenameptr;
+
     
     if(filename == NULL || (unsigned int)filename == 0x40000000) {
         *ret = EFAULT;
@@ -92,7 +93,7 @@ sys_open(userptr_t filename, int flags, int mode, int *ret){
     struct vnode *retvnode;  
     char* temp_filename;
 
-    tempFilename = kstrdup(filename);
+    temp_filename = kstrdup(filename);
     result = vfs_open(temp_filename,flags,0,&retvnode);
     if (result) {
         *ret = result;
@@ -120,25 +121,25 @@ sys_read(int fdesc, userptr_t ubuf, unsigned int nbytes, int *retval){
     struct uio u;
     int err;
     //check if buffer is invalid
-    if(vm_invalidaddress((vaddr_t)buf)){
-        *ret = EFAULT;
+    if(vm_invalidaddress((vaddr_t)ubuf)){
+        *retval = EFAULT;
         return -1;
     }
     if(fdesc >= OPEN_MAX){
-        *ret = EBADF;
+        *retval = EBADF;
         return -1;
     }
     if(!curproc->stdio_reserve){
         curproc->stdio_reserve = true;
-        err = open("con:", O_RDONLY,ret);
+        err = open("con:", O_RDONLY,retval);
         if(err){
             return -1;
         }
-        err = open("con:", O_WRONLY,ret);
+        err = open("con:", O_WRONLY,retval);
         if(err){
             return -1;
         }
-        err = open("con:", O_WRONLY,ret);
+        err = open("con:", O_WRONLY,retval);
         if(err){
             return -1;
         }
@@ -146,37 +147,37 @@ sys_read(int fdesc, userptr_t ubuf, unsigned int nbytes, int *retval){
     
     tempfile = curproc->p_ft->files[fdesc];
     if(tempfile == NULL){
-        *ret = EBADF;
+        *retval = EBADF;
         return -1;
     }
     if(tempfile->flags == O_WRONLY){
-        *ret = EBADF;
+        *retval = EBADF;
         return -1;
     }
     lock_acquire(tempfile->rw_lock);
-    uio_kinit(&iov, &u, buf, buflen, tempfile->offset, UIO_READ);
+    uio_kinit(&iov, &u, ubuf, nbytes, tempfile->offset, UIO_READ);
     VOP_READ(tempfile->vn,&u);
-    data = buflen - u.uio_resid;
+    data = nbytes - u.uio_resid;
     tempfile->offset = u.uio_offset;
-    *ret = data;
+    *retval = data;
     lock_release(tempfile->rw_lock);
     return 0;
 
 }
 
 int
-sys_close(int fdesc int32_t *retval){
+sys_close(int fdesc, int32_t *retval){
   int result;
   struct FileTable *curFt = curproc->p_ft;
 
   if(fdesc < 3 || fdesc > 127) {
-    *ret = EBADF;
+    *retval = EBADF;
     return -1;
   }
 
   result = close_file_and_remove_from_table(curFt, fdesc);
   if(result){
-    *ret = EBADF;
+    *retval = EBADF;
     return -1;
   }
   return result;
@@ -193,27 +194,27 @@ sys_write(int fdesc,userptr_t ubuf,unsigned int nbytes,int *retval)
     struct iovec iov;
     struct uio u;
     int err;
-  if(fd<=0 || fd >= OPEN_MAX){
-        *ret = EBADF; 
+  if(fdesc<=0 || fdesc >= OPEN_MAX){
+        *retval = EBADF; 
         return -1;
     }
     
-    if(vm_invalidaddress((vaddr_t)buffer)) {
-        *ret = EFAULT;
+    if(vm_invalidaddress((vaddr_t)ubuf)) {
+        *retval = EFAULT;
         return -1;
     }
     
     if(!curproc->stdio_reserve){
         curproc->stdio_reserve = true;
-        err = open("con:", O_RDONLY,ret);
+        err = open("con:", O_RDONLY,retval);
         if(err){
             return -1;
         }
-        err = open("con:", O_WRONLY,ret);
+        err = open("con:", O_WRONLY,retval);
         if(err){
             return -1;
         }
-        err = open("con:", O_WRONLY,ret);
+        err = open("con:", O_WRONLY,retval);
         if(err){
             return -1;
         }
@@ -221,30 +222,30 @@ sys_write(int fdesc,userptr_t ubuf,unsigned int nbytes,int *retval)
     
     
     
-    tempfile = curthread->t_proc->p_ft->files[fd];
+    tempfile = curthread->t_proc->p_ft->files[fdesc];
     if(tempfile == NULL){
-        *ret = EBADF;
+        *retval = EBADF;
         return -1;
     }
     if(tempfile->flags == O_RDONLY){
-        *ret = EBADF;
+        *retval = EBADF;
         return -1;
     }
     
     lock_acquire(tempfile->rw_lock);
     
-    uio_kinit(&iov, &u, (void*)buffer, len, tempfile->offset, UIO_WRITE);
+    uio_kinit(&iov, &u, (void*)ubuf, nbytes, tempfile->offset, UIO_WRITE);
 
-    if(fd > 0){
+    if(fdesc > 0){
         err = VOP_WRITE(tempfile->vn,&u);
         if(err){
-            *ret = err;
+            *retval = err;
             return -1;
         }
     }
-    data = len - u.uio_resid;
+    data = nbytes - u.uio_resid;
     tempfile->offset = u.uio_offset;
-    *ret = data;
+    *retval = data;
     
     lock_release(tempfile->rw_lock);
   return 0;
