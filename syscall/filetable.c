@@ -29,6 +29,13 @@ struct FileTable* create_filetable(void) {
     return ft;
 }
 
+/*int open(conts char *string, int flags, int *ret){//suppress warning
+    flags = 0;
+    ret = ret + 4;
+    string = string + 4;
+    return -1;
+}*/
+
 int duplicate_filetable(struct FileTable *src, struct FileTable *dest) {
 	KASSERT(dest != NULL);
 	dest->num_files = src->num_files;

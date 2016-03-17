@@ -36,7 +36,7 @@ sys_open(userptr_t filenameptr, int flags, int mode, int *ret){
     int result;
     int err;
     char *filename = (char *)filenameptr;
-
+    mode = mode + 1;
     
     if(filename == NULL || (unsigned int)filename == 0x40000000) {
         *ret = EFAULT;

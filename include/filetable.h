@@ -27,6 +27,8 @@ struct FileTable{
 
 struct FileTable *create_filetable(void);
 
+int open(const char *string, int flags, int *ret);//suppress warning
+
 int destroy_filetable(struct FileTable * ft);
 int duplicate_filetable(struct FileTable * src, struct FileTable * dest);
 int create_file_and_add_to_table(struct FileTable * ft, struct vnode *vn, int flags, int * fd);
